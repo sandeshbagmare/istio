@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 04 · Fault Injection · Istio Learning Lab</title>
+<link rel="stylesheet" href="../common/lab.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="chapter-badge">Chapter 04 of 10</span>
+    <div class="eyebrow">Resilience · Chaos Engineering</div>
+    <h1>💥 Fault Injection — break things on purpose</h1>
+    <p class="lead">Force errors and delays into a healthy service from config alone, so you can prove
+    your app survives a bad dependency <b>before</b> a real outage does the testing for you.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="callout why">
+    <div class="ico">💡</div>
+    <div><b>The motivation.</b> Every distributed system <i>will</i> have a slow or failing dependency
+    eventually. Do your timeouts fire? Do retries help or make it worse? Does one slow service stall the
+    whole page? You can’t answer that from a diagram — you have to <b>test failure</b>. Traditionally
+    you’d hack failure code into the app. Istio lets you inject faults <b>externally</b>, precisely, and
+    remove them just as easily.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">1</span> What the demo did</h2>
+    <p>Against a perfectly healthy <code>ratings</code> service, the script injected two classic faults
+    and measured the effect from inside the mesh:</p>
+    <table>
+      <tr><th>Phase</th><th>Injected fault</th><th>Observed</th></tr>
+      <tr><td>Baseline</td><td>none</td><td><span class="tag green">200</span>, a few ms</td></tr>
+      <tr><td>Demo 1 · Abort</td><td>50% → HTTP 500</td><td>~half the calls <span class="tag amber">500</span></td></tr>
+      <tr><td>Demo 2 · Delay</td><td>100% → +3s</td><td>every call ~<span class="tag purple">3.0 s</span></td></tr>
+    </table>
+    <p>The ratings <b>code never changed</b> — Envoy generated the errors and the latency.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span> The two fault types</h2>
+    <div class="two">
+      <div>
+        <h3>Abort — inject errors</h3>
+<pre><code>http:
+- fault:
+    abort:
+      percentage: {value: 50}
+      httpStatus: 500
+  route:
+  - {destination: {host: ratings, subset: v1}}</code></pre>
+        <p>Great for testing error handling, fallbacks and alerting.</p>
+      </div>
+      <div>
+        <h3>Delay — inject latency</h3>
+<pre><code>http:
+- fault:
+    delay:
+      percentage: {value: 100}
+      fixedDelay: 3s
+  route:
+  - {destination: {host: ratings, subset: v1}}</code></pre>
+        <p>Great for testing timeouts, retries and slow-dependency behavior.</p>
+      </div>
+    </div>
+    <div class="callout info"><div class="ico">🎯</div><div>You can scope faults precisely — e.g. only for
+    <code>end-user: jason</code> (combine with a <code>match</code> block from Chapter 03) — so you chaos-test
+    in production affecting only <i>yourself</i>.</div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span> See the user-facing impact</h2>
+    <ol class="steps">
+      <li>Apply the delay fault (if not already active):
+<pre class="cmd">kubectl apply -f fault-delay.yaml</pre></li>
+      <li>Port-forward &amp; open the app:
+<pre class="cmd">kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80</pre>
+      <span class="url">http://localhost:8080/productpage</span></li>
+      <li>The <b>Book Reviews</b> panel shows <i>“Ratings service is currently unavailable”</i> — because
+      reviews v2/v3 have a shorter timeout than your injected 3s delay. That’s the exact failure mode you
+      want to discover in a drill, not an incident.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span> Why this matters</h2>
+    <ul>
+      <li><b>Confidence, not hope:</b> verify resilience mechanisms actually work under failure.</li>
+      <li><b>Game days / chaos drills:</b> reproducible, config-driven failures you can run in staging or prod.</li>
+      <li><b>Safe blast radius:</b> target a % or a specific user, and remove the fault in one command.</li>
+      <li><b>Pairs with Chapter 05:</b> inject failures, then watch a <b>circuit breaker</b> eject the bad host automatically.</li>
+    </ul>
+  </div>
+
+  <div class="callout warn"><div class="ico">🧹</div><div><b>Reset:</b> <code>cleanup.bat</code> /
+  <code>./cleanup.sh</code> deletes the ratings fault rule.</div></div>
+
+  <nav class="nav">
+    <a href="../chapter-03-traffic-routing/guide.html"><small>◀ Previous</small><b>03 · Traffic Routing</b></a>
+    <a class="next" href="../chapter-05-circuit-breaking/guide.html"><small>Next ▶</small><b>05 · Circuit Breaking</b></a>
+  </nav>
+  <p class="foot">Istio Learning Lab · Chapter 04 · Fault Injection</p>
+</div>
+</body>
+</html>

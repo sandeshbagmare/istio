@@ -1,0 +1,22 @@
+# ============================================================
+# Chapter 04 — Fault Injection: ABORT
+# ------------------------------------------------------------
+# Make Istio return HTTP 500 for 50% of calls to `ratings`,
+# WITHOUT the ratings service knowing anything about it. This
+# lets you test how upstream services cope with a flaky
+# dependency — chaos engineering, on demand, in config.
+# ============================================================
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ratings
+spec:
+  hosts: [ratings]
+  http:
+  - fault:
+      abort:
+        percentage:
+          value: 50          # 50% of requests
+        httpStatus: 500       # ...get an injected HTTP 500
+    route:
+    - destination: { host: ratings, subset: v1 }
