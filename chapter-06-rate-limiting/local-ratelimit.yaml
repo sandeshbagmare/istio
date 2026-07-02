@@ -27,9 +27,9 @@ spec:
           value:
             stat_prefix: http_local_rate_limiter
             token_bucket:
-              max_tokens: 10
-              tokens_per_fill: 10
-              fill_interval: 60s
+              max_tokens: 5          # allow a burst of 5 requests...
+              tokens_per_fill: 5     # ...then refill 5 tokens...
+              fill_interval: 60s     # ...once every 60 seconds
             filter_enabled:
               runtime_key: local_rate_limit_enabled
               default_value:
