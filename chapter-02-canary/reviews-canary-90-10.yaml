@@ -1,0 +1,15 @@
+# Canary — Step 1: release v3 to a small 10% slice of users.
+# 90% still hit the safe v1; 10% become the "canaries" that test v3.
+# If v3 misbehaves, only 10% of traffic is affected and you roll back.
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts: [reviews]
+  http:
+  - route:
+    - destination: { host: reviews, subset: v1 }
+      weight: 90
+    - destination: { host: reviews, subset: v3 }
+      weight: 10

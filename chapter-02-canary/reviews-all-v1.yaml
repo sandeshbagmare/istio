@@ -1,0 +1,12 @@
+# Canary — Step 0 (baseline): 100% of reviews traffic goes to v1.
+# This is the "current production" version everyone is on today.
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts: [reviews]
+  http:
+  - route:
+    - destination: { host: reviews, subset: v1 }
+      weight: 100

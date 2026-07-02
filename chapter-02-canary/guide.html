@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 02 · Canary Deployments · Istio Learning Lab</title>
+<link rel="stylesheet" href="../common/lab.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="chapter-badge">Chapter 02 of 10</span>
+    <div class="eyebrow">Traffic Management · Progressive Delivery</div>
+    <h1>🐤 Canary Deployments — ship new versions safely</h1>
+    <p class="lead">Send a tiny slice of live traffic to a brand-new version, watch it, and grow the
+    slice only when you trust it — all by editing a single <b>weight</b> number.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="callout why">
+    <div class="ico">💡</div>
+    <div><b>The motivation.</b> A “big bang” deploy — flip 100% of users to a new version at once — is
+    terrifying: a bug hits everyone instantly. The safer idea, borrowed from coal miners’ <i>canaries</i>,
+    is to expose the new version to a small % of traffic first. Historically that meant running two
+    deployments behind a load balancer and fiddling with replica counts. Istio makes the traffic split
+    a <b>declarative percentage</b> that is completely independent of how many pods you run.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">1</span> What the demo did</h2>
+    <p>The Bookinfo <code>reviews</code> service has three versions deployed side by side:</p>
+    <div class="pill-row">
+      <span class="tag blue">v1 — no rating stars</span>
+      <span class="tag amber">v2 — black stars</span>
+      <span class="tag green">v3 — red stars</span>
+    </div>
+    <p>The script walked a full canary rollout, sampling 50 live requests at each stage so you can see
+    the split move:</p>
+    <table>
+      <tr><th>Stage</th><th>VirtualService weights</th><th>What you should see</th></tr>
+      <tr><td>Step 0 — baseline</td><td>v1: 100</td><td>all requests → v1</td></tr>
+      <tr><td>Step 1 — canary</td><td>v1: 90 · v3: 10</td><td>~9 of 10 → v1, ~1 of 10 → v3</td></tr>
+      <tr><td>Step 2 — widen</td><td>v1: 50 · v3: 50</td><td>roughly half and half</td></tr>
+      <tr><td>Step 3 — promote</td><td>v3: 100</td><td>all requests → v3</td></tr>
+    </table>
+    <div class="callout info"><div class="ico">🎲</div><div>Weights are <b>probabilistic per request</b>,
+    not a strict quota — with only 50 samples you’ll see close-to but not exactly 90/10. Over thousands
+    of requests it converges to the configured ratio.</div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span> The mechanism: DestinationRule + VirtualService</h2>
+    <div class="two">
+      <div>
+        <h3>DestinationRule = the menu</h3>
+        <p>Defines named <b>subsets</b> by pod label, so you can refer to “v1” or “v3”. Applied once by
+        setup:</p>
+<pre><code>kind: DestinationRule
+spec:
+  host: reviews
+  subsets:
+  - {name: v1, labels: {version: v1}}
+  - {name: v3, labels: {version: v3}}</code></pre>
+      </div>
+      <div>
+        <h3>VirtualService = the split</h3>
+        <p>Assigns a percentage of traffic to each subset. This is the <i>only</i> thing the demo changed:</p>
+<pre><code>kind: VirtualService
+spec:
+  hosts: [reviews]
+  http:
+  - route:
+    - {destination: {host: reviews, subset: v1}, weight: 90}
+    - {destination: {host: reviews, subset: v3}, weight: 10}</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span> See it with your own eyes</h2>
+    <ol class="steps">
+      <li><b>Open the app.</b> In a new terminal:
+<pre class="cmd">kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80</pre>
+      then browse to <span class="url">http://localhost:8080/productpage</span></li>
+      <li><b>Set a 50/50 split</b> and hammer refresh — the “Book Reviews” star color flips between
+      <b>none</b> (v1) and <b>red</b> (v3) roughly half the time:
+<pre class="cmd">kubectl apply -f reviews-canary-50-50.yaml</pre></li>
+      <li><b>Re-run the numeric sampler</b> at any weight:
+<pre class="cmd">kubectl exec deploy/curl-client -- sh -c "for i in $(seq 1 20); do curl -s http://reviews:9080/reviews/0 | grep -o reviews-v[0-9]; done | sort | uniq -c"</pre></li>
+      <li><b>Best view of all — Kiali (Chapter 07).</b> Its graph draws two live edges from
+      <code>reviews</code> with the request % on each. That’s the picture-perfect canary visualization.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span> Why this matters</h2>
+    <ul>
+      <li><b>Risk control:</b> a bad release hurts 10% of users, not 100% — and you roll back by re-applying the old weights.</li>
+      <li><b>Decoupled from scaling:</b> the 10% is a routing decision, unrelated to replica counts. 1 canary pod can still take exactly 10%.</li>
+      <li><b>Foundation for automation:</b> tools like <b>Argo Rollouts</b> / <b>Flagger</b> automate exactly this — bump the weight, check metrics, bump again, or roll back.</li>
+      <li><b>A/B &amp; blue-green</b> are the same primitive with different weights or match rules (see Chapter 03).</li>
+    </ul>
+  </div>
+
+  <div class="callout warn"><div class="ico">🧹</div><div><b>Reset:</b> double-click <code>cleanup.bat</code>
+  (or <code>./cleanup.sh</code>) to delete the reviews routing rule.</div></div>
+
+  <nav class="nav">
+    <a href="../chapter-01-mtls/guide.html"><small>◀ Previous</small><b>01 · Mutual TLS</b></a>
+    <a class="next" href="../chapter-03-traffic-routing/guide.html"><small>Next ▶</small><b>03 · Traffic Routing</b></a>
+  </nav>
+  <p class="foot">Istio Learning Lab · Chapter 02 · Canary Deployments</p>
+</div>
+</body>
+</html>

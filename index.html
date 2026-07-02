@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Istio Learning Lab — 10 Hands-On Demos</title>
+    <meta name="description" content="A comprehensive hands-on learning lab for Istio service mesh with 10 interactive demo chapters covering mTLS, canary deployments, traffic routing, observability, and more.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #06060a;
+            --bg-secondary: #0c0c14;
+            --bg-card: rgba(15, 15, 25, 0.7);
+            --border: rgba(0, 212, 255, 0.12);
+            --border-hover: rgba(0, 212, 255, 0.35);
+            --cyan: #00d4ff;
+            --cyan-dim: rgba(0, 212, 255, 0.15);
+            --teal: #00ffc8;
+            --purple: #a855f7;
+            --pink: #f472b6;
+            --text-primary: #e8eaed;
+            --text-secondary: #9ca3af;
+            --text-dim: #6b7280;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Ambient Background Effects */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 20% 20%, rgba(0, 212, 255, 0.04) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 80%, rgba(168, 85, 247, 0.03) 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 50%, rgba(0, 255, 200, 0.02) 0%, transparent 50%);
+            z-index: -1;
+            animation: ambientShift 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes ambientShift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-2%, -2%) rotate(3deg); }
+        }
+
+        /* Grid Pattern Overlay */
+        .grid-overlay {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0, 212, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 100px 24px 60px;
+            position: relative;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: var(--cyan-dim);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--cyan);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 28px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .hero-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 10px var(--cyan);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            animation: fadeInDown 0.8s ease-out 0.15s both;
+        }
+
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, var(--cyan), var(--teal), var(--cyan));
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .hero p {
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            max-width: 680px;
+            margin: 0 auto 36px;
+            animation: fadeInDown 0.8s ease-out 0.3s both;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            flex-wrap: wrap;
+            animation: fadeInDown 0.8s ease-out 0.45s both;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--cyan);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* Setup Banner */
+        .setup-banner {
+            max-width: 900px;
+            margin: 0 auto 60px;
+            padding: 28px 32px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.08), rgba(168, 85, 247, 0.06));
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .setup-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), var(--teal), transparent);
+        }
+
+        .setup-banner h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--cyan);
+        }
+
+        .setup-banner p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+        }
+
+        .setup-cmd {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--teal);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .setup-cmd:hover {
+            border-color: var(--border-hover);
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .setup-cmd .icon { font-size: 1.1rem; }
+
+        /* Chapters Grid */
+        .chapters-section {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .section-header h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+        }
+
+        .chapters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        .chapter-card {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: default;
+            backdrop-filter: blur(12px);
+            overflow: hidden;
+        }
+
+        .chapter-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--card-accent, var(--cyan));
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .chapter-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.08);
+        }
+
+        .chapter-card:hover::before {
+            opacity: 1;
+        }
+
+        .chapter-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--card-accent-bg, var(--cyan-dim));
+            color: var(--card-accent, var(--cyan));
+            font-size: 0.85rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            margin-bottom: 16px;
+        }
+
+        .chapter-category {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .cat-security {
+            background: rgba(244, 114, 182, 0.12);
+            color: #f472b6;
+        }
+        .cat-traffic {
+            background: rgba(0, 212, 255, 0.12);
+            color: #00d4ff;
+        }
+        .cat-resilience {
+            background: rgba(251, 191, 36, 0.12);
+            color: #fbbf24;
+        }
+        .cat-observability {
+            background: rgba(168, 85, 247, 0.12);
+            color: #a855f7;
+        }
+
+        .chapter-card h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .chapter-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 18px;
+        }
+
+        .chapter-features {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+
+        .chapter-features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            padding: 3px 0;
+        }
+
+        .chapter-features li::before {
+            content: '▸';
+            color: var(--card-accent, var(--cyan));
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .chapter-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-run {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            border: 1px solid var(--border);
+            background: rgba(0, 212, 255, 0.08);
+            color: var(--cyan);
+            cursor: default;
+            transition: all 0.3s;
+        }
+
+        .btn-guide {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: default;
+            transition: all 0.3s;
+        }
+
+        /* Architecture Section */
+        .architecture-section {
+            max-width: 1000px;
+            margin: 0 auto 80px;
+            padding: 0 24px;
+        }
+
+        .arch-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+        }
+
+        .arch-diagram h3 {
+            font-size: 1.3rem;
+            margin-bottom: 24px;
+            color: var(--cyan);
+        }
+
+        .arch-flow {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 2.2;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+        }
+
+        .arch-flow .highlight { color: var(--cyan); font-weight: 600; }
+        .arch-flow .accent { color: var(--teal); font-weight: 600; }
+        .arch-flow .warning { color: #fbbf24; font-weight: 600; }
+
+        /* Prerequisites */
+        .prereqs {
+            max-width: 900px;
+            margin: 0 auto 80px;
+            padding: 0 24px;
+        }
+
+        .prereqs-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            backdrop-filter: blur(12px);
+        }
+
+        .prereqs-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+
+        .prereq-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .prereq-item:last-child { border-bottom: none; }
+
+        .prereq-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .prereq-info h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .prereq-info p {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: var(--cyan);
+            text-decoration: none;
+        }
+
+        footer a:hover { text-decoration: underline; }
+
+        /* Animations */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(24px);
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chapter-card:nth-child(1) { animation-delay: 0.1s; }
+        .chapter-card:nth-child(2) { animation-delay: 0.15s; }
+        .chapter-card:nth-child(3) { animation-delay: 0.2s; }
+        .chapter-card:nth-child(4) { animation-delay: 0.25s; }
+        .chapter-card:nth-child(5) { animation-delay: 0.3s; }
+        .chapter-card:nth-child(6) { animation-delay: 0.35s; }
+        .chapter-card:nth-child(7) { animation-delay: 0.4s; }
+        .chapter-card:nth-child(8) { animation-delay: 0.45s; }
+        .chapter-card:nth-child(9) { animation-delay: 0.5s; }
+        .chapter-card:nth-child(10) { animation-delay: 0.55s; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero { padding: 60px 16px 40px; }
+            .hero-stats { gap: 28px; }
+            .chapters-grid { grid-template-columns: 1fr; }
+            .arch-flow { font-size: 0.7rem; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 255, 0.35); }
+    </style>
+</head>
+<body>
+    <div class="grid-overlay"></div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-badge">Service Mesh Learning Lab</div>
+        <h1>Master <span class="gradient-text">Istio</span><br>in 10 Demos</h1>
+        <p>A hands-on deep dive into Istio service mesh — from zero-trust security with mTLS to canary deployments, observability dashboards, chaos engineering, and more. Each chapter is a self-contained, runnable demo.</p>
+        <div class="hero-stats">
+            <div class="stat">
+                <div class="stat-number">10</div>
+                <div class="stat-label">Chapters</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">4</div>
+                <div class="stat-label">Categories</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">30+</div>
+                <div class="stat-label">Concepts</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">Hands-On</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Setup Banner -->
+    <section class="setup-banner fade-in" style="animation-delay: 0.5s;">
+        <h3>&#9889; First Time? Run Setup</h3>
+        <p>Before starting any chapter, run the setup script to install Minikube, Istio, and all dependencies. This only needs to be done once.</p>
+        <div class="setup-cmd">
+            <span class="icon">&#128187;</span>
+            <span>Double-click <strong>setup.bat</strong> in the project root</span>
+        </div>
+    </section>
+
+    <!-- Chapters -->
+    <section class="chapters-section">
+        <div class="section-header">
+            <h2>&#128218; Learning Path</h2>
+            <p>Each chapter builds understanding progressively. Click into any chapter folder and run <code style="color: var(--teal); font-family: var(--font-mono); background: var(--cyan-dim); padding: 2px 8px; border-radius: 4px;">startup.bat</code></p>
+        </div>
+
+        <div class="chapters-grid">
+
+            <!-- Chapter 1 -->
+            <div class="chapter-card fade-in" style="--card-accent: #f472b6; --card-accent-bg: rgba(244,114,182,0.12);">
+                <div>
+                    <span class="chapter-number">01</span>
+                    <span class="chapter-category cat-security">Security</span>
+                </div>
+                <h3>Mutual TLS (mTLS)</h3>
+                <p>Automatic encryption for all service-to-service communication. Zero-trust security without changing a single line of application code.</p>
+                <ul class="chapter-features">
+                    <li>STRICT vs PERMISSIVE mTLS modes</li>
+                    <li>Certificate lifecycle managed by istiod</li>
+                    <li>Block non-mesh traffic automatically</li>
+                    <li>Inspect TLS certificates in real-time</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-01-mtls\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 2 -->
+            <div class="chapter-card fade-in" style="--card-accent: #00d4ff; --card-accent-bg: rgba(0,212,255,0.12);">
+                <div>
+                    <span class="chapter-number">02</span>
+                    <span class="chapter-category cat-traffic">Traffic</span>
+                </div>
+                <h3>Canary Deployments</h3>
+                <p>Gradually shift traffic from v1 to v2 using weighted routing. Roll out new versions safely with fine-grained percentage control.</p>
+                <ul class="chapter-features">
+                    <li>90/10 &rarr; 50/50 &rarr; 100% traffic shifting</li>
+                    <li>Weighted routing via VirtualService</li>
+                    <li>DestinationRule subsets for version targeting</li>
+                    <li>Safer than Kubernetes rolling updates</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-02-canary\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 3 -->
+            <div class="chapter-card fade-in" style="--card-accent: #00d4ff; --card-accent-bg: rgba(0,212,255,0.12);">
+                <div>
+                    <span class="chapter-number">03</span>
+                    <span class="chapter-category cat-traffic">Traffic</span>
+                </div>
+                <h3>Intelligent Traffic Routing</h3>
+                <p>Route traffic based on HTTP headers, user identity, and custom conditions. Enable A/B testing and dark launches without code changes.</p>
+                <ul class="chapter-features">
+                    <li>User-identity routing (login as 'jason')</li>
+                    <li>Custom header-based routing (x-canary)</li>
+                    <li>Match rule priority and ordering</li>
+                    <li>Feature flags via infrastructure</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-03-traffic-routing\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 4 -->
+            <div class="chapter-card fade-in" style="--card-accent: #fbbf24; --card-accent-bg: rgba(251,191,36,0.12);">
+                <div>
+                    <span class="chapter-number">04</span>
+                    <span class="chapter-category cat-resilience">Resilience</span>
+                </div>
+                <h3>Fault Injection</h3>
+                <p>Inject delays and HTTP errors to test application resilience. Discover hidden bugs like timeout misconfigurations through chaos engineering.</p>
+                <ul class="chapter-features">
+                    <li>7-second delay injection on ratings service</li>
+                    <li>HTTP 500 abort injection</li>
+                    <li>Discover timeout bugs between services</li>
+                    <li>No application code changes needed</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-04-fault-injection\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 5 -->
+            <div class="chapter-card fade-in" style="--card-accent: #fbbf24; --card-accent-bg: rgba(251,191,36,0.12);">
+                <div>
+                    <span class="chapter-number">05</span>
+                    <span class="chapter-category cat-resilience">Resilience</span>
+                </div>
+                <h3>Circuit Breaking</h3>
+                <p>Prevent cascade failures by limiting connections and ejecting unhealthy endpoints. The circuit breaker pattern protects your entire mesh.</p>
+                <ul class="chapter-features">
+                    <li>Connection pool limits (maxConnections)</li>
+                    <li>Outlier detection and host ejection</li>
+                    <li>Load testing with Fortio</li>
+                    <li>Observe 503 overflow responses</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-05-circuit-breaking\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 6 -->
+            <div class="chapter-card fade-in" style="--card-accent: #fbbf24; --card-accent-bg: rgba(251,191,36,0.12);">
+                <div>
+                    <span class="chapter-number">06</span>
+                    <span class="chapter-category cat-resilience">Resilience</span>
+                </div>
+                <h3>Rate Limiting</h3>
+                <p>Control traffic rates with local rate limiting using EnvoyFilter. Protect your services from overload with the token bucket algorithm.</p>
+                <ul class="chapter-features">
+                    <li>10 requests/minute limit on productpage</li>
+                    <li>Token bucket algorithm in action</li>
+                    <li>429 Too Many Requests responses</li>
+                    <li>Custom response headers for debugging</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-06-rate-limiting\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 7 -->
+            <div class="chapter-card fade-in" style="--card-accent: #a855f7; --card-accent-bg: rgba(168,85,247,0.12);">
+                <div>
+                    <span class="chapter-number">07</span>
+                    <span class="chapter-category cat-observability">Observability</span>
+                </div>
+                <h3>Kiali Dashboard</h3>
+                <p>Visualize your entire service mesh topology in real-time. See traffic flows, health status, and Istio configuration validation.</p>
+                <ul class="chapter-features">
+                    <li>Real-time service mesh graph</li>
+                    <li>Traffic animation and flow visualization</li>
+                    <li>Health indicators and error detection</li>
+                    <li>Istio configuration validation</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-07-kiali-dashboard\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 8 -->
+            <div class="chapter-card fade-in" style="--card-accent: #a855f7; --card-accent-bg: rgba(168,85,247,0.12);">
+                <div>
+                    <span class="chapter-number">08</span>
+                    <span class="chapter-category cat-observability">Observability</span>
+                </div>
+                <h3>Grafana &amp; Prometheus</h3>
+                <p>Monitor your mesh with automatic metrics collection. Explore pre-built Istio dashboards and learn PromQL queries for deep insights.</p>
+                <ul class="chapter-features">
+                    <li>Automatic Envoy metrics collection</li>
+                    <li>Pre-built Istio Grafana dashboards</li>
+                    <li>PromQL queries for Istio metrics</li>
+                    <li>The 4 Golden Signals monitoring</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-08-grafana-prometheus\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 9 -->
+            <div class="chapter-card fade-in" style="--card-accent: #a855f7; --card-accent-bg: rgba(168,85,247,0.12);">
+                <div>
+                    <span class="chapter-number">09</span>
+                    <span class="chapter-category cat-observability">Observability</span>
+                </div>
+                <h3>Distributed Tracing (Jaeger)</h3>
+                <p>Trace requests across microservices with Jaeger. Understand call chains, latency breakdowns, and debug performance issues.</p>
+                <ul class="chapter-features">
+                    <li>Automatic trace header injection</li>
+                    <li>Jaeger UI for trace visualization</li>
+                    <li>Span timing and parent-child hierarchy</li>
+                    <li>Cross-service latency analysis</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-09-jaeger-tracing\startup.bat</span>
+                </div>
+            </div>
+
+            <!-- Chapter 10 -->
+            <div class="chapter-card fade-in" style="--card-accent: #00ffc8; --card-accent-bg: rgba(0,255,200,0.12);">
+                <div>
+                    <span class="chapter-number">10</span>
+                    <span class="chapter-category cat-traffic">Traffic</span>
+                </div>
+                <h3>Traffic Mirroring</h3>
+                <p>Send shadow copies of live traffic to a test service. Validate new versions with real production traffic — zero risk to users.</p>
+                <ul class="chapter-features">
+                    <li>Mirror 100% of traffic to reviews-v3</li>
+                    <li>Fire-and-forget (responses discarded)</li>
+                    <li>Verify via pod logs comparison</li>
+                    <li>Dark launching for safe testing</li>
+                </ul>
+                <div class="chapter-actions">
+                    <span class="btn-run">&#9654; chapter-10-traffic-mirroring\startup.bat</span>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Architecture Overview -->
+    <section class="architecture-section">
+        <div class="arch-diagram">
+            <h3>&#128301; Bookinfo Application Architecture</h3>
+            <div class="arch-flow">
+<span class="highlight">Browser / User</span>
+       |
+       v
+<span class="warning">[Istio Ingress Gateway]</span> ---- Handles external traffic
+       |
+       v
+<span class="highlight">[productpage]</span> (Python, v1) ---- Frontend service
+      / \
+     /   \
+    v     v
+<span class="accent">[details]</span>  <span class="accent">[reviews]</span> ---- Backend services
+(Ruby)    (Java)
+           |  |  |
+          v1  v2  v3
+           |   |
+           v   v
+        <span class="accent">[ratings]</span> ---- Rating data
+        (Node.js)
+
+<span class="warning">Each service has an Envoy sidecar proxy injected by Istio</span>
+<span class="warning">All traffic flows through these sidecars = full control</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Prerequisites -->
+    <section class="prereqs">
+        <div class="prereqs-card">
+            <h3>&#128736; Prerequisites (installed by setup.bat)</h3>
+            <div class="prereq-item">
+                <div class="prereq-icon" style="background: rgba(0,122,204,0.12); color: #007acc;">&#128051;</div>
+                <div class="prereq-info">
+                    <h4>Docker Desktop</h4>
+                    <p>Container runtime — must be installed and running before setup</p>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon" style="background: rgba(50,109,230,0.12); color: #326de6;">&#9784;</div>
+                <div class="prereq-info">
+                    <h4>Minikube</h4>
+                    <p>Local Kubernetes cluster (4 CPUs, 8GB RAM, 50GB disk)</p>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon" style="background: rgba(70,100,200,0.12); color: #4664c8;">&#9881;</div>
+                <div class="prereq-info">
+                    <h4>Istio + istioctl</h4>
+                    <p>Service mesh with demo profile (istiod + ingress/egress gateways)</p>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon" style="background: rgba(0,212,255,0.12); color: #00d4ff;">&#9879;</div>
+                <div class="prereq-info">
+                    <h4>Helm</h4>
+                    <p>Kubernetes package manager</p>
+                </div>
+            </div>
+            <div class="prereq-item">
+                <div class="prereq-icon" style="background: rgba(168,85,247,0.12); color: #a855f7;">&#128202;</div>
+                <div class="prereq-info">
+                    <h4>Addons: Kiali, Grafana, Prometheus, Jaeger</h4>
+                    <p>Observability stack for dashboards, metrics, and tracing</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>Istio Learning Lab &middot; Built for beginners &middot; <a href="https://istio.io/latest/docs/" target="_blank" rel="noopener">Istio Official Docs</a> &middot; <a href="https://github.com/istio/istio" target="_blank" rel="noopener">Istio GitHub</a></p>
+        <p style="margin-top: 8px; color: var(--text-dim);">To tear down everything, run <code style="font-family: var(--font-mono); color: #ef4444;">teardown.bat</code></p>
+    </footer>
+
+    <script>
+        // Intersection Observer for fade-in animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animationPlayState = 'running';
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            el.style.animationPlayState = 'paused';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

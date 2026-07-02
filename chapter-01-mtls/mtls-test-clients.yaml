@@ -1,0 +1,58 @@
+# ============================================================
+# Two test clients used to PROVE that mTLS is working:
+#
+#   curl-mesh   -> lives in the "default" namespace, which has
+#                  istio-injection=enabled, so it gets a sidecar
+#                  and a cryptographic identity. It speaks mTLS.
+#
+#   curl-legacy -> lives in the "legacy" namespace, which has
+#                  injection DISABLED, so it has NO sidecar and
+#                  NO identity. It can only speak plaintext.
+#
+# Before STRICT mode: both can reach the bookinfo services.
+# After  STRICT mode: only curl-mesh can. curl-legacy is blocked.
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: legacy
+  labels:
+    istio-injection: disabled
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-legacy
+  namespace: legacy
+  labels: { app: curl-legacy }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: curl-legacy }
+  template:
+    metadata:
+      labels: { app: curl-legacy }
+    spec:
+      containers:
+      - name: curl
+        image: curlimages/curl:latest
+        command: ["sleep", "infinity"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-mesh
+  namespace: default
+  labels: { app: curl-mesh }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: curl-mesh }
+  template:
+    metadata:
+      labels: { app: curl-mesh }
+    spec:
+      containers:
+      - name: curl
+        image: curlimages/curl:latest
+        command: ["sleep", "infinity"]

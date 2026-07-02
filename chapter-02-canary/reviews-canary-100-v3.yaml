@@ -1,0 +1,12 @@
+# Canary — Step 3 (promotion): v3 is trusted, send 100% to it.
+# The rollout is complete. v1 can now be retired.
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts: [reviews]
+  http:
+  - route:
+    - destination: { host: reviews, subset: v3 }
+      weight: 100

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 03 · Traffic Routing · Istio Learning Lab</title>
+<link rel="stylesheet" href="../common/lab.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="chapter-badge">Chapter 03 of 10</span>
+    <div class="eyebrow">Traffic Management · A/B Testing</div>
+    <h1>🎯 Content-Based Routing — send the right user to the right version</h1>
+    <p class="lead">Route requests by <b>who</b> they come from — a header, a cookie, a device, a path —
+    instead of a blind percentage. This is how dark launches and A/B tests work.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="callout why">
+    <div class="ico">💡</div>
+    <div><b>The motivation.</b> Canary (Chapter 02) is <i>random</i>: you can’t control <b>which</b> 10%
+    of users become canaries. But often you want <b>specific</b> people on the new version — your QA team,
+    internal staff, a beta cohort, or users in a certain region — while everyone else stays on stable.
+    That needs routing based on request <b>content</b>, not dice rolls.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">1</span> What the demo did</h2>
+    <p>It applied a rule: <b>“if the request says you are <code>jason</code>, serve reviews v2; otherwise
+    serve v1.”</b> Then it fired 10 requests each way from inside the mesh:</p>
+    <table>
+      <tr><th>Request</th><th>Header</th><th>Served by</th></tr>
+      <tr><td>Anonymous</td><td><i>(none)</i></td><td><span class="tag blue">v1 — no stars</span></td></tr>
+      <tr><td>Logged in as jason</td><td><code>end-user: jason</code></td><td><span class="tag amber">v2 — black stars</span></td></tr>
+    </table>
+    <p>Same service, same URL — the version is decided entirely by the request’s identity.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span> The rule (evaluated top-to-bottom)</h2>
+<pre><code>kind: VirtualService
+spec:
+  hosts: [reviews]
+  http:
+  - match:                       # RULE 1
+    - headers:
+        end-user:
+          exact: jason           #   if header end-user == jason
+    route:
+    - {destination: {host: reviews, subset: v2}}
+  - route:                       # RULE 2 (default / fallthrough)
+    - {destination: {host: reviews, subset: v1}}</code></pre>
+    <div class="callout info"><div class="ico">🔎</div><div>Order matters. Istio tries each
+    <code>match</code> in sequence and uses the <b>first</b> one that fits. The last route with no
+    <code>match</code> is the catch-all — always put it last.</div></div>
+    <p>Where does <code>end-user</code> come from? When you log into Bookinfo, the <b>productpage</b>
+    service attaches an <code>end-user</code> header to its calls. Istio reads that header at the
+    <code>reviews</code> hop and routes accordingly.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span> You can match on almost anything</h2>
+    <div class="pill-row">
+      <span class="tag blue">headers</span><span class="tag blue">cookies</span>
+      <span class="tag green">uri prefix / exact / regex</span><span class="tag green">method</span>
+      <span class="tag purple">query params</span><span class="tag amber">source workload/namespace</span>
+    </div>
+<pre><code># mobile users -> v3 ; /api/v2 path -> a new backend ; canary cookie -> v2
+- match: [ {headers: {user-agent: {regex: ".*Mobile.*"}}} ]
+- match: [ {uri: {prefix: "/api/v2"}} ]
+- match: [ {headers: {cookie: {regex: "^(.*;?)?(canary=true)(;.*)?$"}}} ]</code></pre>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span> See it in the browser</h2>
+    <ol class="steps">
+      <li>Port-forward the ingress in a new terminal:
+<pre class="cmd">kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80</pre></li>
+      <li>Open <span class="url">http://localhost:8080/productpage</span> — the reviews panel shows
+      <b>no stars</b> (that’s v1, the anonymous default).</li>
+      <li>Click <b>Sign in</b> (top-right) and log in as <code>jason</code> (any password). The reviews
+      panel now shows <b>black stars</b> — you’ve been routed to v2.</li>
+      <li>Sign in as any other name (e.g. <code>alice</code>) → back to v1. Only jason is special.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">5</span> Why this matters</h2>
+    <ul>
+      <li><b>Targeted rollouts:</b> put internal/QA users on the new build in production, safely, before anyone else.</li>
+      <li><b>True A/B testing:</b> deterministically bucket users and compare business metrics per version.</li>
+      <li><b>Migrations:</b> route <code>/api/v2/*</code> to a new service while <code>/api/v1/*</code> stays put — a strangler-fig migration with zero client changes.</li>
+      <li><b>Combine with weights:</b> a <code>match</code> block can <i>also</i> carry weighted destinations — “jason’s traffic, split 50/50 between v2 and v3.”</li>
+    </ul>
+  </div>
+
+  <div class="callout warn"><div class="ico">🧹</div><div><b>Reset:</b> <code>cleanup.bat</code> /
+  <code>./cleanup.sh</code> removes the routing rule.</div></div>
+
+  <nav class="nav">
+    <a href="../chapter-02-canary/guide.html"><small>◀ Previous</small><b>02 · Canary Deployments</b></a>
+    <a class="next" href="../chapter-04-fault-injection/guide.html"><small>Next ▶</small><b>04 · Fault Injection</b></a>
+  </nav>
+  <p class="foot">Istio Learning Lab · Chapter 03 · Content-Based Traffic Routing</p>
+</div>
+</body>
+</html>

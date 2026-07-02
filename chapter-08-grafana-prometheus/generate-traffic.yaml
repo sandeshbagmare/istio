@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: traffic-generator-metrics
+  labels:
+    app: traffic-generator-metrics
+    chapter: "08"
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: traffic-generator-metrics
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: fortio
+          image: fortio/fortio:latest
+          command:
+            - fortio
+            - load
+            - "-qps"
+            - "10"
+            - "-t"
+            - "600s"
+            - "-c"
+            - "4"
+            - "-allow-initial-errors"
+            - "http://productpage.default.svc.cluster.local:9080/productpage"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "128Mi"

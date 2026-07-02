@@ -1,0 +1,19 @@
+# ============================================================
+# Chapter 01 — Mutual TLS (mTLS)
+# ------------------------------------------------------------
+# This single object flips the whole "default" namespace from
+# PERMISSIVE (accept both plaintext AND mTLS) to STRICT
+# (accept ONLY mTLS from workloads that carry an Istio identity).
+#
+# The moment this is applied, any client WITHOUT an Istio
+# sidecar can no longer talk to services in "default" — its
+# plaintext TCP connection is reset by the receiving Envoy.
+# ============================================================
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default-strict-mtls
+  namespace: default
+spec:
+  mtls:
+    mode: STRICT

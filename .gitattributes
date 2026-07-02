@@ -1,0 +1,14 @@
+# Windows batch scripts must use CRLF so cmd.exe parses labels/goto reliably.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Unix shell scripts must stay LF or bash will choke on \r.
+*.sh   text eol=lf
+
+# Everything else: let Git normalize on commit.
+*.yaml text
+*.yml  text
+*.html text
+*.css  text
+*.md   text

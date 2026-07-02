@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 01 · Mutual TLS (mTLS) · Istio Learning Lab</title>
+<link rel="stylesheet" href="../common/lab.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="chapter-badge">Chapter 01 of 10</span>
+    <div class="eyebrow">Security · Zero-Trust Networking</div>
+    <h1>🔐 Mutual TLS — encrypt everything, change nothing</h1>
+    <p class="lead">Turn on automatic, certificate-based encryption and identity for every call between
+    your microservices — without touching a single line of application code.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="callout why">
+    <div class="ico">💡</div>
+    <div><b>The motivation — why mTLS exists.</b><br>
+    Inside a Kubernetes cluster, pods talk to each other over plain HTTP by default. Anyone who lands
+    on the network (a compromised pod, a curious sidecar, a misconfigured tool) can <b>sniff</b> that
+    traffic or <b>impersonate</b> a service. The old fix was to make every team add TLS certificates
+    to their app — slow, error-prone, and rarely done. Istio moves that job <b>out of the app and into
+    the mesh</b>: the sidecar proxy handles the crypto for you.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">1</span> What actually happened when you ran the demo</h2>
+    <p>The <code>startup</code> script deployed two identical <code>curl</code> clients and had each of
+    them call the <code>ratings</code> service twice — once <b>before</b> and once <b>after</b> STRICT
+    mTLS was switched on:</p>
+    <table>
+      <tr><th>Client</th><th>Has Istio sidecar?</th><th>Before STRICT</th><th>After STRICT</th></tr>
+      <tr><td><code>curl-mesh</code> (namespace <code>default</code>)</td><td>✅ Yes</td>
+          <td><span class="tag green">HTTP 200</span></td><td><span class="tag green">HTTP 200</span></td></tr>
+      <tr><td><code>curl-legacy</code> (namespace <code>legacy</code>)</td><td>❌ No</td>
+          <td><span class="tag green">HTTP 200</span></td><td><span class="tag amber">HTTP 000 — blocked</span></td></tr>
+    </table>
+    <p>The only thing that changed was a <b>policy object</b>. The apps were never redeployed.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span> The one object that did it</h2>
+    <p>A <code>PeerAuthentication</code> in <code>STRICT</code> mode tells every Envoy sidecar in the
+    namespace: <i>“only accept connections that present a valid Istio identity.”</i></p>
+<pre><code>apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default-strict-mtls
+  namespace: default
+spec:
+  mtls:
+    mode: STRICT        # PERMISSIVE (default) | STRICT | DISABLE</code></pre>
+    <div class="pill-row">
+      <span class="tag blue">PERMISSIVE</span> accept both plaintext &amp; mTLS (safe migration default)
+      &nbsp;·&nbsp; <span class="tag green">STRICT</span> mTLS only
+      &nbsp;·&nbsp; <span class="tag amber">DISABLE</span> turn mTLS off
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span> How it works under the hood</h2>
+    <div class="two">
+      <div>
+        <h3>Identity, not passwords</h3>
+        <p>When a pod starts, <b>istiod</b> issues its sidecar a short-lived X.509 certificate whose
+        “name” is a <b>SPIFFE ID</b> derived from the Kubernetes service account, e.g.
+        <code>spiffe://cluster.local/ns/default/sa/bookinfo-ratings</code>. That certificate is the
+        workload’s cryptographic identity.</p>
+      </div>
+      <div>
+        <h3>Automatic &amp; rotating</h3>
+        <p>The sidecars perform a mutual TLS handshake on <b>both</b> ends (client <i>and</i> server
+        prove who they are). Certificates auto-rotate about every 24h. Your application still thinks
+        it is speaking plain HTTP to <code>localhost</code> — the sidecar does the encryption.</p>
+      </div>
+    </div>
+<pre><code>your-app ──plain http──▶ [Envoy sidecar] ══ mTLS (encrypted) ══▶ [Envoy sidecar] ──plain http──▶ ratings-app</code></pre>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span> See it &amp; verify it yourself</h2>
+    <p>Open a terminal (PowerShell or Git Bash) in this folder and try these:</p>
+    <ol class="steps">
+      <li><b>Confirm the policy is active</b>
+<pre class="cmd">kubectl get peerauthentication -n default</pre></li>
+      <li><b>Re-run the blocked call</b> — the legacy client still fails
+<pre class="cmd">kubectl exec -n legacy deploy/curl-legacy -- curl -s -o /dev/null -w "%{http_code}\n" --max-time 6 http://ratings.default:9080/ratings/0</pre>
+      Returns <code>000</code> (connection reset by the server’s sidecar).</li>
+      <li><b>Prove traffic really is mTLS</b> — inspect the certificate Istio issued to a pod
+<pre class="cmd">..\tools\bin\istioctl.exe proxy-config secret deploy/reviews-v1 -o json</pre>
+      (You’ll see the X.509 chain the sidecar presents. On macOS/Linux drop the <code>.exe</code>.)</li>
+    </ol>
+    <div class="callout ok"><div class="ico">✅</div><div>There is no dashboard to open for this chapter —
+    the proof is in the HTTP status codes the script printed and the commands above. Chapters 07–09 add
+    the visual dashboards (Kiali even draws a 🔒 lock icon on every mTLS-secured edge).</div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">5</span> Why this matters</h2>
+    <ul>
+      <li><b>Zero-trust by default:</b> traffic is encrypted and authenticated even <i>inside</i> the cluster.</li>
+      <li><b>No app changes:</b> security is a platform capability, not a per-team chore.</li>
+      <li><b>Foundation for authorization:</b> once every call carries a verifiable identity, you can write
+      rules like “only <code>productpage</code> may call <code>reviews</code>” (AuthorizationPolicy).</li>
+      <li><b>Compliance:</b> “encryption in transit” is satisfied mesh-wide with one object.</li>
+    </ul>
+  </div>
+
+  <div class="callout warn"><div class="ico">🧹</div><div><b>Reset before the next chapter.</b>
+  Double-click <code>cleanup.bat</code> (or run <code>./cleanup.sh</code>) to remove the STRICT policy and
+  the test clients, returning the namespace to PERMISSIVE.</div></div>
+
+  <nav class="nav">
+    <a href="../index.html"><small>◀ Back to</small><b>Lab Home</b></a>
+    <a class="next" href="../chapter-02-canary/guide.html"><small>Next ▶</small><b>02 · Canary Deployments</b></a>
+  </nav>
+
+  <p class="foot">Istio Learning Lab · Chapter 01 · Mutual TLS</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,66 @@
+# ============================================================
+# DestinationRules for ALL Bookinfo services
+# ------------------------------------------------------------
+# A DestinationRule defines the "subsets" (versions) that a
+# VirtualService is allowed to route to. Nothing here changes
+# traffic on its own — it simply gives names (v1, v2, v3) to
+# groups of pods based on their labels, so later chapters can
+# say "send 10% to subset v3".
+#
+# Applied once by setup. Safe to re-apply (idempotent).
+# ============================================================
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: productpage
+spec:
+  host: productpage
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: reviews
+spec:
+  host: reviews
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+  - name: v3
+    labels:
+      version: v3
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ratings
+spec:
+  host: ratings
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: details
+spec:
+  host: details
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2

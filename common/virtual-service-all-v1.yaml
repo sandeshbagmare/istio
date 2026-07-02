@@ -1,0 +1,62 @@
+# ============================================================
+# Baseline routing: pin EVERY service to subset v1
+# ------------------------------------------------------------
+# This is the "known good" starting point used by the routing
+# chapters. Applying it makes traffic deterministic (reviews
+# always shows the NO-stars v1 page), so that when a chapter
+# then shifts traffic you can clearly see the change.
+#
+# cleanup.bat in each routing chapter re-applies this file to
+# return the mesh to a clean state.
+# ============================================================
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage
+spec:
+  hosts:
+  - productpage
+  http:
+  - route:
+    - destination:
+        host: productpage
+        subset: v1
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ratings
+spec:
+  hosts:
+  - ratings
+  http:
+  - route:
+    - destination:
+        host: ratings
+        subset: v1
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: details
+spec:
+  hosts:
+  - details
+  http:
+  - route:
+    - destination:
+        host: details
+        subset: v1

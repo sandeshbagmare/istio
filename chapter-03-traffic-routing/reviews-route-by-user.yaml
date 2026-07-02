@@ -1,0 +1,26 @@
+# ============================================================
+# Chapter 03 — Content-based (identity-based) request routing
+# ------------------------------------------------------------
+# Rules are evaluated top-to-bottom, like a firewall:
+#   1) IF the request carries header  end-user: jason  -> reviews v2
+#   2) OTHERWISE (no match)                            -> reviews v1
+#
+# This is how you do internal testing, dark launches and A/B
+# tests: a specific user / cohort / device sees the new version
+# while everyone else stays on the stable one.
+# ============================================================
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts: [reviews]
+  http:
+  - match:
+    - headers:
+        end-user:
+          exact: jason
+    route:
+    - destination: { host: reviews, subset: v2 }
+  - route:
+    - destination: { host: reviews, subset: v1 }

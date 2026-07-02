@@ -1,0 +1,1929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Chapter 7: Kiali Dashboard - Master service mesh visualization and observability with Kiali in Istio">
+    <title>Chapter 7: Kiali Dashboard | Istio Learning Lab</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ═══════════════════════════════════════════════════════════════
+           CSS RESET & BASE
+           ═══════════════════════════════════════════════════════════════ */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #0f0f18;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --bg-code: #0d1117;
+            --accent: #00d4ff;
+            --accent-dim: rgba(0, 212, 255, 0.15);
+            --accent-border: rgba(0, 212, 255, 0.1);
+            --accent-glow: rgba(0, 212, 255, 0.4);
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --green: #22c55e;
+            --yellow: #eab308;
+            --red: #ef4444;
+            --orange: #f97316;
+            --purple: #a855f7;
+            --pink: #ec4899;
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --glass-blur: blur(20px);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           SCROLLBAR
+           ═══════════════════════════════════════════════════════════════ */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* ═══════════════════════════════════════════════════════════════
+           FLOATING PARTICLES (CSS-only)
+           ═══════════════════════════════════════════════════════════════ */
+        .particles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: var(--accent);
+            border-radius: 50%;
+            opacity: 0;
+            animation: particleFloat linear infinite;
+        }
+
+        .particle:nth-child(1) { left: 10%; animation-duration: 18s; animation-delay: 0s; }
+        .particle:nth-child(2) { left: 25%; animation-duration: 22s; animation-delay: 3s; }
+        .particle:nth-child(3) { left: 40%; animation-duration: 16s; animation-delay: 1s; }
+        .particle:nth-child(4) { left: 55%; animation-duration: 24s; animation-delay: 5s; }
+        .particle:nth-child(5) { left: 70%; animation-duration: 20s; animation-delay: 2s; }
+        .particle:nth-child(6) { left: 85%; animation-duration: 19s; animation-delay: 4s; }
+        .particle:nth-child(7) { left: 15%; animation-duration: 21s; animation-delay: 6s; }
+        .particle:nth-child(8) { left: 60%; animation-duration: 17s; animation-delay: 1.5s; }
+        .particle:nth-child(9) { left: 35%; animation-duration: 23s; animation-delay: 3.5s; }
+        .particle:nth-child(10) { left: 90%; animation-duration: 15s; animation-delay: 7s; }
+        .particle:nth-child(11) { left: 5%; animation-duration: 25s; animation-delay: 2.5s; }
+        .particle:nth-child(12) { left: 48%; animation-duration: 20s; animation-delay: 8s; }
+
+        @keyframes particleFloat {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           LAYOUT
+           ═══════════════════════════════════════════════════════════════ */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           HERO SECTION
+           ═══════════════════════════════════════════════════════════════ */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+            padding: 60px 24px;
+        }
+
+        .hero-mesh {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            opacity: 0.12;
+        }
+
+        .mesh-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            height: 1px;
+            animation: meshMove linear infinite;
+        }
+
+        .mesh-line:nth-child(1) { top: 20%; width: 60%; left: 10%; animation-duration: 8s; }
+        .mesh-line:nth-child(2) { top: 35%; width: 80%; left: 5%; animation-duration: 12s; animation-delay: 1s; }
+        .mesh-line:nth-child(3) { top: 50%; width: 50%; left: 30%; animation-duration: 10s; animation-delay: 2s; }
+        .mesh-line:nth-child(4) { top: 65%; width: 70%; left: 15%; animation-duration: 9s; animation-delay: 0.5s; }
+        .mesh-line:nth-child(5) { top: 80%; width: 55%; left: 25%; animation-duration: 11s; animation-delay: 3s; }
+
+        .mesh-line-v {
+            position: absolute;
+            background: linear-gradient(180deg, transparent, var(--accent), transparent);
+            width: 1px;
+            animation: meshMoveV linear infinite;
+        }
+
+        .mesh-line-v:nth-child(6) { left: 20%; height: 60%; top: 10%; animation-duration: 9s; }
+        .mesh-line-v:nth-child(7) { left: 40%; height: 70%; top: 5%; animation-duration: 11s; animation-delay: 2s; }
+        .mesh-line-v:nth-child(8) { left: 60%; height: 50%; top: 20%; animation-duration: 8s; animation-delay: 1s; }
+        .mesh-line-v:nth-child(9) { left: 80%; height: 65%; top: 15%; animation-duration: 10s; animation-delay: 3s; }
+
+        @keyframes meshMove {
+            0%, 100% { transform: translateX(-20px); opacity: 0.3; }
+            50% { transform: translateX(20px); opacity: 1; }
+        }
+
+        @keyframes meshMoveV {
+            0%, 100% { transform: translateY(-20px); opacity: 0.3; }
+            50% { transform: translateY(20px); opacity: 1; }
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: var(--accent-dim);
+            border: 1px solid var(--accent-border);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--accent);
+            margin-bottom: 32px;
+            backdrop-filter: var(--glass-blur);
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .hero-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, #00d4ff 0%, #a855f7 50%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 40px;
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: fadeInUp 0.8s ease-out 0.6s both;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: var(--transition);
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #0099cc);
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.5);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           GLASS CARD
+           ═══════════════════════════════════════════════════════════════ */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--accent-border);
+            border-radius: var(--radius);
+            padding: 32px;
+            margin-bottom: 32px;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .glass-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(0, 212, 255, 0.25);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           SECTION STYLES
+           ═══════════════════════════════════════════════════════════════ */
+        .section {
+            padding: 80px 0;
+        }
+
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 16px;
+        }
+
+        .section-label::before {
+            content: '';
+            width: 24px;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 1px;
+        }
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            line-height: 1.2;
+        }
+
+        h3 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            margin-top: 28px;
+            color: var(--text-primary);
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            margin-top: 20px;
+            color: var(--accent);
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .section-desc {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin-bottom: 40px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           TABLE OF CONTENTS
+           ═══════════════════════════════════════════════════════════════ */
+        .toc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+        }
+
+        .toc-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            color: var(--text-secondary);
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+
+        .toc-item:hover {
+            border-color: var(--accent-border);
+            color: var(--accent);
+            background: var(--accent-dim);
+            transform: translateX(4px);
+        }
+
+        .toc-num {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           STEP NUMBERS
+           ═══════════════════════════════════════════════════════════════ */
+        .step {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 28px;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-primary);
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--accent);
+            flex-shrink: 0;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.2), inset 0 0 12px rgba(0, 212, 255, 0.1);
+            animation: glowPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.2), inset 0 0 12px rgba(0, 212, 255, 0.1); }
+            50% { box-shadow: 0 0 35px rgba(0, 212, 255, 0.4), inset 0 0 18px rgba(0, 212, 255, 0.2); }
+        }
+
+        .step-content {
+            flex: 1;
+            padding-top: 8px;
+        }
+
+        .step-content h4 {
+            margin-top: 0;
+            color: var(--text-primary);
+            font-size: 1.05rem;
+        }
+
+        .step-content p {
+            font-size: 0.92rem;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           CODE BLOCKS
+           ═══════════════════════════════════════════════════════════════ */
+        .code-block {
+            position: relative;
+            margin: 16px 0 24px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .code-lang {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        .copy-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .copy-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .copy-btn.copied {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        pre {
+            background: var(--bg-code);
+            padding: 20px;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #c9d1d9;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        .inline-code {
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            border: 1px solid var(--accent-border);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           ARCHITECTURE DIAGRAM
+           ═══════════════════════════════════════════════════════════════ */
+        .arch-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            padding: 40px 20px;
+            margin: 24px 0;
+        }
+
+        .arch-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .arch-node {
+            padding: 16px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent-border);
+            border-radius: var(--radius-sm);
+            text-align: center;
+            min-width: 140px;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .arch-node.primary {
+            border-color: var(--accent);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.15);
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.08), rgba(0, 212, 255, 0.02));
+        }
+
+        .arch-node .node-icon {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+
+        .arch-node .node-label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .arch-node .node-sub {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .arch-connector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .arch-connector .line {
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        .arch-arrows {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            position: relative;
+        }
+
+        .arch-arrow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .arch-arrow .arrow-line {
+            width: 2px;
+            height: 40px;
+            background: linear-gradient(180deg, var(--accent), transparent);
+        }
+
+        .arch-arrow .arrow-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           FEATURE GRID
+           ═══════════════════════════════════════════════════════════════ */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 24px 0;
+        }
+
+        .feature-card {
+            padding: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent-border);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-dim);
+            border-radius: 12px;
+            font-size: 1.3rem;
+            margin-bottom: 14px;
+        }
+
+        .feature-card h4 {
+            margin-top: 0;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            margin-bottom: 0;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           HEALTH INDICATORS
+           ═══════════════════════════════════════════════════════════════ */
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .health-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+
+        .health-item:hover {
+            border-color: var(--accent-border);
+        }
+
+        .health-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .health-dot::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background: inherit;
+            opacity: 0.3;
+        }
+
+        .health-dot.green { background: var(--green); }
+        .health-dot.yellow { background: var(--yellow); }
+        .health-dot.red { background: var(--red); }
+        .health-dot.gray { background: #6b7280; }
+
+        .health-info h5 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .health-info p {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-bottom: 0;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           GRAPH TYPES TABLE
+           ═══════════════════════════════════════════════════════════════ */
+        .graph-types {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.9rem;
+        }
+
+        .graph-types th {
+            text-align: left;
+            padding: 14px 18px;
+            background: rgba(0, 212, 255, 0.06);
+            border-bottom: 2px solid var(--accent-border);
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .graph-types td {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        .graph-types tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge {
+            display: inline-flex;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-recommended {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--green);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .badge-accent {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent-border);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           ISSUE PATTERNS
+           ═══════════════════════════════════════════════════════════════ */
+        .issue-list {
+            list-style: none;
+            margin: 16px 0;
+        }
+
+        .issue-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .issue-list li:last-child {
+            border-bottom: none;
+        }
+
+        .issue-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+
+        .issue-indicator.red { background: var(--red); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+        .issue-indicator.yellow { background: var(--yellow); box-shadow: 0 0 10px rgba(234, 179, 8, 0.4); }
+        .issue-indicator.orange { background: var(--orange); box-shadow: 0 0 10px rgba(249, 115, 22, 0.4); }
+        .issue-indicator.purple { background: var(--purple); box-shadow: 0 0 10px rgba(168, 85, 247, 0.4); }
+
+        .issue-text strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .issue-text span {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           CALLOUT / TIP BOX
+           ═══════════════════════════════════════════════════════════════ */
+        .callout {
+            display: flex;
+            gap: 14px;
+            padding: 20px;
+            background: rgba(0, 212, 255, 0.04);
+            border: 1px solid var(--accent-border);
+            border-radius: var(--radius-sm);
+            margin: 20px 0;
+            border-left: 3px solid var(--accent);
+        }
+
+        .callout-icon {
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .callout p {
+            margin-bottom: 0;
+            font-size: 0.9rem;
+        }
+
+        .callout.warning {
+            background: rgba(234, 179, 8, 0.04);
+            border-color: rgba(234, 179, 8, 0.2);
+            border-left-color: var(--yellow);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           TAKEAWAY CARD
+           ═══════════════════════════════════════════════════════════════ */
+        .takeaway-card {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.06), rgba(168, 85, 247, 0.04));
+            border: 1px solid rgba(0, 212, 255, 0.15);
+            border-radius: var(--radius);
+            padding: 36px;
+            margin: 32px 0;
+        }
+
+        .takeaway-card h3 {
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .takeaway-list {
+            list-style: none;
+            margin: 0;
+        }
+
+        .takeaway-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .takeaway-list li::before {
+            content: '✦';
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           TABS
+           ═══════════════════════════════════════════════════════════════ */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 4px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .tab-btn.active {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           FOOTER
+           ═══════════════════════════════════════════════════════════════ */
+        .footer {
+            text-align: center;
+            padding: 60px 24px;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: 40px;
+        }
+
+        .footer-nav {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .footer-nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .footer-nav a:hover {
+            color: var(--accent);
+        }
+
+        .footer p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .footer-brand {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .footer-brand .gradient-text {
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           RESPONSIVE
+           ═══════════════════════════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            .container { padding: 0 16px; }
+            .glass-card { padding: 24px; }
+            .section { padding: 50px 0; }
+            h2 { font-size: 1.6rem; }
+            .toc-grid { grid-template-columns: 1fr; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .health-grid { grid-template-columns: 1fr; }
+            .arch-row { flex-direction: column; align-items: center; }
+            .graph-types { font-size: 0.8rem; }
+            .graph-types th, .graph-types td { padding: 10px 12px; }
+            .tabs { flex-wrap: nowrap; }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           UTILITY
+           ═══════════════════════════════════════════════════════════════ */
+        .mt-0 { margin-top: 0; }
+        .mb-0 { margin-bottom: 0; }
+        .text-accent { color: var(--accent); }
+        .text-green { color: var(--green); }
+        .text-red { color: var(--red); }
+        .divider {
+            height: 1px;
+            background: var(--border-subtle);
+            margin: 32px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         PARTICLES
+         ═══════════════════════════════════════════════════════════════ -->
+    <div class="particles">
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         HERO SECTION
+         ═══════════════════════════════════════════════════════════════ -->
+    <header class="hero">
+        <div class="hero-mesh">
+            <div class="mesh-line"></div>
+            <div class="mesh-line"></div>
+            <div class="mesh-line"></div>
+            <div class="mesh-line"></div>
+            <div class="mesh-line"></div>
+            <div class="mesh-line-v"></div>
+            <div class="mesh-line-v"></div>
+            <div class="mesh-line-v"></div>
+            <div class="mesh-line-v"></div>
+        </div>
+        <div class="container">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                Chapter 7 — Istio Learning Lab
+            </div>
+            <h1>
+                <span class="gradient-text">Kiali Dashboard</span><br>
+                Service Mesh Visualization
+            </h1>
+            <p class="hero-subtitle">
+                Master real-time service mesh observability. Visualize traffic flows, detect anomalies,
+                and validate Istio configurations through Kiali's powerful interactive dashboard.
+            </p>
+            <div class="hero-actions">
+                <a href="#getting-started" class="btn btn-primary">⚡ Get Started</a>
+                <a href="#toc" class="btn btn-outline">📖 Explore Guide</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- ═══════════════════════════════════════════════════════════
+             TABLE OF CONTENTS
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="toc" class="section">
+            <div class="glass-card">
+                <div class="section-label">Navigation</div>
+                <h2>Table of Contents</h2>
+                <p class="section-desc">Everything you need to master Kiali dashboard for Istio observability.</p>
+                <div class="toc-grid">
+                    <a href="#what-is-kiali" class="toc-item"><span class="toc-num">01</span> What is Kiali?</a>
+                    <a href="#architecture" class="toc-item"><span class="toc-num">02</span> Architecture</a>
+                    <a href="#getting-started" class="toc-item"><span class="toc-num">03</span> Getting Started</a>
+                    <a href="#ui-deep-dive" class="toc-item"><span class="toc-num">04</span> UI Deep Dive</a>
+                    <a href="#graph-types" class="toc-item"><span class="toc-num">05</span> Graph Types</a>
+                    <a href="#health-indicators" class="toc-item"><span class="toc-num">06</span> Health Indicators</a>
+                    <a href="#identifying-issues" class="toc-item"><span class="toc-num">07</span> Identifying Issues</a>
+                    <a href="#useful-features" class="toc-item"><span class="toc-num">08</span> Useful Features</a>
+                    <a href="#takeaways" class="toc-item"><span class="toc-num">09</span> Key Takeaways</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             WHAT IS KIALI?
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="what-is-kiali" class="section">
+            <div class="section-label">Understanding</div>
+            <h2>What is Kiali?</h2>
+            <p class="section-desc">
+                Kiali is the observability console for Istio service mesh. It provides deep insight into the structure and health of your mesh, helping you understand what your microservices are doing in real time.
+            </p>
+
+            <div class="glass-card">
+                <h3 class="mt-0">Why Kiali Matters</h3>
+                <p>
+                    Without Kiali, understanding the behavior of dozens or hundreds of microservices communicating through Istio's sidecar proxies would require manual inspection of metrics, logs, and configuration files across many systems. Kiali unifies all of this into a single, interactive dashboard.
+                </p>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔍</div>
+                        <h4>Topology Visualization</h4>
+                        <p>Automatically generates real-time service mesh topology graphs showing how services communicate with each other.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">❤️</div>
+                        <h4>Health Monitoring</h4>
+                        <p>Color-coded health indicators for namespaces, applications, workloads, and services at a glance.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">✅</div>
+                        <h4>Config Validation</h4>
+                        <p>Validates Istio configurations (VirtualServices, DestinationRules) and warns about misconfigurations before they cause issues.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h4>Metrics Integration</h4>
+                        <p>Pulls metrics from Prometheus to show request rates, error rates, and latency distributions for every service.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h4>mTLS Verification</h4>
+                        <p>Visually verifies that mutual TLS is properly configured between services with lock icons on traffic edges.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔗</div>
+                        <h4>Distributed Tracing</h4>
+                        <p>Integrates with Jaeger to provide distributed tracing capabilities directly within the Kiali interface.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             ARCHITECTURE
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="architecture" class="section">
+            <div class="section-label">System Design</div>
+            <h2>Kiali Architecture</h2>
+            <p class="section-desc">
+                Kiali integrates with the Istio control plane and multiple data sources to provide a unified observability experience.
+            </p>
+
+            <div class="glass-card">
+                <div class="arch-diagram">
+                    <!-- Top: Kiali -->
+                    <div class="arch-row">
+                        <div class="arch-node primary">
+                            <div class="node-icon">🎛️</div>
+                            <div class="node-label">Kiali</div>
+                            <div class="node-sub">Observability Console</div>
+                        </div>
+                    </div>
+
+                    <!-- Arrows down -->
+                    <div class="arch-arrows">
+                        <div class="arch-arrow">
+                            <div class="arrow-line"></div>
+                            <div class="arrow-label">queries</div>
+                        </div>
+                        <div class="arch-arrow">
+                            <div class="arrow-line"></div>
+                            <div class="arrow-label">watches</div>
+                        </div>
+                        <div class="arch-arrow">
+                            <div class="arrow-line"></div>
+                            <div class="arrow-label">links</div>
+                        </div>
+                        <div class="arch-arrow">
+                            <div class="arrow-line"></div>
+                            <div class="arrow-label">links</div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom: Data Sources -->
+                    <div class="arch-row">
+                        <div class="arch-node">
+                            <div class="node-icon">📈</div>
+                            <div class="node-label">Prometheus</div>
+                            <div class="node-sub">Metrics & telemetry</div>
+                        </div>
+                        <div class="arch-node">
+                            <div class="node-icon">☸️</div>
+                            <div class="node-label">Kubernetes API</div>
+                            <div class="node-sub">Resources & config</div>
+                        </div>
+                        <div class="arch-node">
+                            <div class="node-icon">📊</div>
+                            <div class="node-label">Grafana</div>
+                            <div class="node-sub">Dashboard links</div>
+                        </div>
+                        <div class="arch-node">
+                            <div class="node-icon">🔗</div>
+                            <div class="node-label">Jaeger</div>
+                            <div class="node-sub">Distributed tracing</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="callout">
+                    <span class="callout-icon">💡</span>
+                    <div>
+                        <p><strong>How it works:</strong> Kiali queries <strong>Prometheus</strong> for service mesh telemetry (request rates, error rates, latencies), watches the <strong>Kubernetes API</strong> for workloads, services, and Istio custom resources, and links out to <strong>Grafana</strong> for detailed dashboards and <strong>Jaeger</strong> for distributed traces.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             GETTING STARTED
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="getting-started" class="section">
+            <div class="section-label">Setup</div>
+            <h2>Getting Started</h2>
+            <p class="section-desc">
+                Follow these steps to access Kiali and start visualizing your service mesh traffic.
+            </p>
+
+            <div class="glass-card">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Verify Kiali is Installed</h4>
+                        <p>Check that Kiali is running in the istio-system namespace.</p>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">bash</span>
+                                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+                            </div>
+                            <pre><code>kubectl get pods -n istio-system -l app=kiali</code></pre>
+                        </div>
+                        <p>You should see a kiali pod in <code class="inline-code">Running</code> state.</p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Set Up Port Forwarding</h4>
+                        <p>Forward the Kiali service port to your local machine to access the dashboard.</p>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">bash</span>
+                                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+                            </div>
+                            <pre><code>kubectl port-forward svc/kiali -n istio-system 20001:20001</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Generate Traffic</h4>
+                        <p>Kiali needs active traffic to display graphs. Apply the traffic generator job to create steady request flow.</p>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">bash</span>
+                                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+                            </div>
+                            <pre><code>kubectl apply -f generate-traffic.yaml
+
+# This sends 5 requests/second for 300 seconds
+# with 2 concurrent connections to productpage</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Open Kiali Dashboard</h4>
+                        <p>Navigate to the Kiali web interface in your browser.</p>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">url</span>
+                                <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+                            </div>
+                            <pre><code>http://localhost:20001</code></pre>
+                        </div>
+                        <p>Select the <code class="inline-code">Graph</code> view from the sidebar, choose the <code class="inline-code">default</code> namespace, and select <code class="inline-code">Versioned App Graph</code> to see traffic flowing through your services.</p>
+                    </div>
+                </div>
+
+                <div class="callout">
+                    <span class="callout-icon">💡</span>
+                    <div>
+                        <p><strong>Tip:</strong> The <code class="inline-code">startup.bat</code> script automates all these steps for you! Just double-click it to deploy traffic, start port-forwarding, and open this guide.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             KIALI UI DEEP DIVE
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="ui-deep-dive" class="section">
+            <div class="section-label">Exploration</div>
+            <h2>Kiali UI Deep Dive</h2>
+            <p class="section-desc">
+                Kiali's interface is organized into several views, each focused on a different aspect of your service mesh. Let's explore each one in detail.
+            </p>
+
+            <!-- Tab Navigation -->
+            <div class="tabs" role="tablist">
+                <button class="tab-btn active" onclick="switchTab(event, 'tab-overview')" role="tab">Overview</button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-graph')" role="tab">Graph View</button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-display')" role="tab">Display Options</button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-apps')" role="tab">Applications</button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-workloads')" role="tab">Workloads</button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-services')" role="tab">Services</button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-istio-config')" role="tab">Istio Config</button>
+            </div>
+
+            <!-- Tab: Overview -->
+            <div id="tab-overview" class="tab-panel active glass-card">
+                <h3 class="mt-0">📋 Overview Page</h3>
+                <p>
+                    The Overview page is your mesh-wide dashboard. It shows a card for each namespace that is part of the mesh, giving you an at-a-glance summary of health and traffic.
+                </p>
+                <h4>What You'll See</h4>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Namespace Health:</strong> Aggregated health status (green/yellow/red) for all apps, workloads, and services in each namespace</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Traffic Summary:</strong> Sparkline graphs showing inbound/outbound request rates for the namespace</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Istio Config Status:</strong> Number of valid, warning, and error Istio configurations</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Quick Navigation:</strong> Click any namespace card to jump directly to its graph, apps, or workloads view</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Tab: Graph View -->
+            <div id="tab-graph" class="tab-panel glass-card">
+                <h3 class="mt-0">🕸️ Graph View — The Heart of Kiali</h3>
+                <p>
+                    The Graph view is Kiali's most powerful feature. It renders a real-time, interactive topology graph of your service mesh, showing how services communicate and the health of each connection.
+                </p>
+
+                <h4>Graph Elements</h4>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">⬡</div>
+                        <h4>Nodes</h4>
+                        <p>Represent apps, workloads, or services. Shape indicates type: app (triangle), workload (circle), service (pentagon). Color indicates health.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">→</div>
+                        <h4>Edges</h4>
+                        <p>Represent traffic between nodes. Thickness indicates request volume. Color indicates health: green (success), red (errors).</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎬</div>
+                        <h4>Traffic Animation</h4>
+                        <p>Animated dots flow along edges showing real-time traffic direction and volume. Faster animation = higher request rate.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h4>Response Codes</h4>
+                        <p>Hover over edges to see HTTP response code distribution (2xx, 3xx, 4xx, 5xx) and percentage breakdown.</p>
+                    </div>
+                </div>
+
+                <h4>Versioned App Graph (Recommended)</h4>
+                <p>
+                    The <strong>Versioned App Graph</strong> groups nodes by application label and shows different versions (e.g., <code class="inline-code">reviews-v1</code>, <code class="inline-code">reviews-v2</code>, <code class="inline-code">reviews-v3</code>) as separate nodes within an application box. This is the ideal view for understanding traffic routing between versions — essential when testing canary deployments or A/B testing.
+                </p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-lang">Graph Interpretation</span>
+                        <button class="copy-btn" onclick="copyCode(this)">📋 Copy</button>
+                    </div>
+                    <pre><code>productpage ──→ reviews (app box)
+                     ├── reviews-v1  (33% traffic)
+                     ├── reviews-v2  (33% traffic) ──→ ratings-v1
+                     └── reviews-v3  (33% traffic) ──→ ratings-v1
+
+productpage ──→ details-v1</code></pre>
+                </div>
+            </div>
+
+            <!-- Tab: Display Options -->
+            <div id="tab-display" class="tab-panel glass-card">
+                <h3 class="mt-0">⚙️ Display Options</h3>
+                <p>
+                    Kiali's graph view offers rich display customization through the toolbar. These options control what information is overlaid on the topology graph.
+                </p>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🎬</div>
+                        <h4>Traffic Animation</h4>
+                        <p>Toggle animated dots flowing along edges to visualize real-time request flow. Speed corresponds to request volume.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⏱️</div>
+                        <h4>Response Time</h4>
+                        <p>Display average response time labels on edges. Helps identify slow service-to-service calls at a glance.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📶</div>
+                        <h4>Throughput</h4>
+                        <p>Show requests-per-second on each edge. Useful for understanding load distribution across services.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h4>mTLS Locks</h4>
+                        <p>Display lock icons on edges where mutual TLS is active. Open locks indicate missing mTLS — a security concern.</p>
+                    </div>
+                </div>
+
+                <div class="callout">
+                    <span class="callout-icon">💡</span>
+                    <div>
+                        <p><strong>Pro Tip:</strong> Enable <strong>Traffic Animation</strong> and <strong>Response Time</strong> together for the most informative graph view. This combination lets you see both the flow pattern and performance characteristics simultaneously.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Applications -->
+            <div id="tab-apps" class="tab-panel glass-card">
+                <h3 class="mt-0">📱 Applications View</h3>
+                <p>
+                    The Applications view groups workloads by the <code class="inline-code">app</code> Kubernetes label. This gives a higher-level view than individual workloads, showing you application-level health and metrics.
+                </p>
+
+                <h4>Application Details</h4>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Health Status:</strong> Aggregated health from all workloads and services belonging to the application</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Inbound/Outbound Metrics:</strong> Request rate, error rate, and latency (P50/P90/P99) charts for each application</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Workload List:</strong> Shows all workloads (deployments) that belong to this application with their individual status</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Traffic Tab:</strong> Visual graph scoped to just this application's inbound and outbound connections</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Tab: Workloads -->
+            <div id="tab-workloads" class="tab-panel glass-card">
+                <h3 class="mt-0">⚙️ Workloads View</h3>
+                <p>
+                    Dive into individual workloads (Deployments, StatefulSets, DaemonSets) for granular inspection of pods, logs, and Envoy proxy configuration.
+                </p>
+
+                <h4>Workload Details</h4>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Pod Details:</strong> View individual pod status, labels, annotations, and container information</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Logs:</strong> Stream and search application container and istio-proxy sidecar logs directly from the UI</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Envoy Config:</strong> Inspect the Envoy proxy configuration dumped from the sidecar — clusters, listeners, routes, and bootstrap</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Metrics:</strong> Workload-level inbound/outbound metrics with configurable time ranges</span>
+                    </li>
+                </ul>
+
+                <div class="callout">
+                    <span class="callout-icon">💡</span>
+                    <div>
+                        <p><strong>Debugging Tip:</strong> When troubleshooting, use the <strong>Envoy</strong> tab to inspect the actual proxy configuration. This is invaluable for understanding why traffic routing isn't behaving as expected — you can see exactly what routes, clusters, and listeners Envoy has configured.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Services -->
+            <div id="tab-services" class="tab-panel glass-card">
+                <h3 class="mt-0">🌐 Services View</h3>
+                <p>
+                    The Services view focuses on Kubernetes Services and their associated Istio routing configuration.
+                </p>
+
+                <h4>Service Details</h4>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Virtual Services:</strong> View all VirtualService resources that route traffic to this service, including match conditions, destinations, and weights</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Destination Rules:</strong> See DestinationRule configurations including traffic policies, connection pool settings, and outlier detection</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Endpoints:</strong> View the actual pod endpoints backing the service</span>
+                    </li>
+                    <li style="padding: 8px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Metrics:</strong> Service-level request rate, error rate, and latency charts</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Tab: Istio Config -->
+            <div id="tab-istio-config" class="tab-panel glass-card">
+                <h3 class="mt-0">🛡️ Istio Config View</h3>
+                <p>
+                    The Istio Config view is a centralized place to inspect and validate all Istio custom resources in your cluster.
+                </p>
+
+                <h4>Configuration Status</h4>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">✅</div>
+                        <h4>Valid</h4>
+                        <p>Configuration is syntactically correct and semantically valid. References to hosts, subsets, and gateways all resolve properly.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚠️</div>
+                        <h4>Warning</h4>
+                        <p>Configuration has potential issues — e.g., a VirtualService references a subset that doesn't exist in any DestinationRule yet.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">❌</div>
+                        <h4>Error</h4>
+                        <p>Configuration has definite errors that will prevent correct mesh behavior — e.g., conflicting VirtualServices or invalid syntax.</p>
+                    </div>
+                </div>
+
+                <div class="callout warning">
+                    <span class="callout-icon">⚠️</span>
+                    <div>
+                        <p><strong>Important:</strong> Always check the Istio Config view after applying new VirtualServices or DestinationRules. Kiali's validation catches many common mistakes like missing subsets, host mismatches, and conflicting route rules that <code class="inline-code">kubectl apply</code> won't flag.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             GRAPH TYPES
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="graph-types" class="section">
+            <div class="section-label">Visualization</div>
+            <h2>Graph Types Explained</h2>
+            <p class="section-desc">
+                Kiali offers four graph types, each providing a different perspective on your service mesh traffic.
+            </p>
+
+            <div class="glass-card">
+                <table class="graph-types">
+                    <thead>
+                        <tr>
+                            <th>Graph Type</th>
+                            <th>Grouping</th>
+                            <th>Best For</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>App Graph</strong></td>
+                            <td>Groups by <code class="inline-code">app</code> label</td>
+                            <td>High-level service overview</td>
+                            <td><span class="badge badge-accent">Standard</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Versioned App Graph</strong></td>
+                            <td>Groups by <code class="inline-code">app</code> + <code class="inline-code">version</code></td>
+                            <td>Canary deployments, traffic splitting</td>
+                            <td><span class="badge badge-recommended">Recommended</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Workload Graph</strong></td>
+                            <td>Individual deployments</td>
+                            <td>Detailed pod-level traffic analysis</td>
+                            <td><span class="badge badge-accent">Detailed</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Service Graph</strong></td>
+                            <td>Kubernetes Services</td>
+                            <td>Service-oriented architecture view</td>
+                            <td><span class="badge badge-accent">Simplified</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout">
+                    <span class="callout-icon">💡</span>
+                    <div>
+                        <p><strong>Recommendation:</strong> Start with the <strong>Versioned App Graph</strong>. It provides the best balance between detail and clarity, especially when working with the BookInfo sample application where multiple versions of the reviews service exist. You can see exactly how traffic splits between v1, v2, and v3.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             HEALTH INDICATORS
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="health-indicators" class="section">
+            <div class="section-label">Monitoring</div>
+            <h2>Health Indicators</h2>
+            <p class="section-desc">
+                Kiali uses a consistent color-coding system across all views to communicate health status at a glance.
+            </p>
+
+            <div class="glass-card">
+                <div class="health-grid">
+                    <div class="health-item">
+                        <div class="health-dot green"></div>
+                        <div class="health-info">
+                            <h5>Healthy (Green)</h5>
+                            <p>All requests succeeding. Error rate is below the configured threshold (typically &lt;0.1%).</p>
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-dot yellow"></div>
+                        <div class="health-info">
+                            <h5>Degraded (Yellow)</h5>
+                            <p>Some errors detected. Error rate is above warning threshold but below failure threshold.</p>
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-dot red"></div>
+                        <div class="health-info">
+                            <h5>Failure (Red)</h5>
+                            <p>High error rate. Significant portion of requests are failing (5xx errors). Immediate attention needed.</p>
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-dot gray"></div>
+                        <div class="health-info">
+                            <h5>No Health (Gray)</h5>
+                            <p>No traffic detected in the selected time period. Service may be idle or not receiving requests.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <h4>Where Health Appears</h4>
+                <p>Health indicators are consistently shown across all Kiali views:</p>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 6px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Overview:</strong> Namespace-level aggregated health</span>
+                    </li>
+                    <li style="padding: 6px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>Graph:</strong> Node colors and edge colors reflect health of individual components and connections</span>
+                    </li>
+                    <li style="padding: 6px 0; color: var(--text-secondary); display: flex; gap: 10px;">
+                        <span style="color: var(--accent);">▸</span>
+                        <span><strong>List Views:</strong> Small health badge icons next to each application, workload, and service</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             IDENTIFYING ISSUES
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="identifying-issues" class="section">
+            <div class="section-label">Troubleshooting</div>
+            <h2>Identifying Issues with Kiali</h2>
+            <p class="section-desc">
+                Kiali makes it easy to spot problems in your mesh. Here are the key patterns to watch for.
+            </p>
+
+            <div class="glass-card">
+                <ul class="issue-list">
+                    <li>
+                        <span class="issue-indicator red"></span>
+                        <div class="issue-text">
+                            <strong>Red Edges → 5xx Server Errors</strong>
+                            <span>Red-colored edges in the graph indicate HTTP 5xx errors on that connection. Click the edge to see the exact error rate percentage and response code breakdown. Common causes: crashing pods, resource exhaustion, or misconfigured retries.</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="issue-indicator yellow"></span>
+                        <div class="issue-text">
+                            <strong>Slow Response Times</strong>
+                            <span>Enable "Response Time" in display options. Look for edges with high latency values (e.g., >500ms). This often indicates slow database queries, resource contention, or misconfigured timeouts in VirtualServices.</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="issue-indicator orange"></span>
+                        <div class="issue-text">
+                            <strong>Missing mTLS (Open Lock Icons)</strong>
+                            <span>When mTLS display is enabled, edges without mTLS show an open lock icon. This means traffic between those services is not encrypted. Check your PeerAuthentication and DestinationRule TLS settings.</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="issue-indicator purple"></span>
+                        <div class="issue-text">
+                            <strong>Misconfigured VirtualServices</strong>
+                            <span>Check the Istio Config view for warning/error badges. Common issues include VirtualServices referencing non-existent subsets, weight distributions not summing to 100, or overlapping route match conditions.</span>
+                        </div>
+                    </li>
+                </ul>
+
+                <div class="callout">
+                    <span class="callout-icon">💡</span>
+                    <div>
+                        <p><strong>Debugging Workflow:</strong> Start from the <strong>Graph View</strong> to identify the problem area → click the affected edge or node → check <strong>Metrics</strong> for the error timeline → inspect <strong>Workload Logs</strong> for root cause → validate <strong>Istio Config</strong> for misconfigurations.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             USEFUL FEATURES
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="useful-features" class="section">
+            <div class="section-label">Power User</div>
+            <h2>Useful Features</h2>
+            <p class="section-desc">
+                Beyond basic visualization, Kiali offers several powerful features for managing and debugging your mesh.
+            </p>
+
+            <div class="glass-card">
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">📜</div>
+                        <h4>Traffic Policies</h4>
+                        <p>View and understand how VirtualServices and DestinationRules affect traffic flow. See active routing rules overlaid on the graph.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔗</div>
+                        <h4>Tracing Integration</h4>
+                        <p>Click any service and jump directly to its distributed traces in Jaeger. Correlate mesh topology with request-level traces.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🛡️</div>
+                        <h4>Config Validation</h4>
+                        <p>Kiali validates all Istio resources and highlights conflicts, missing references, and semantic errors that kubectl won't catch.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⏪</div>
+                        <h4>Replay</h4>
+                        <p>Use the time range selector to view historical traffic patterns. Compare how traffic flow and health changed over time.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔍</div>
+                        <h4>Filtering & Search</h4>
+                        <p>Filter graph nodes by app, version, or workload name. Hide idle nodes or show only nodes with errors for focused debugging.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📐</div>
+                        <h4>Layout Options</h4>
+                        <p>Choose between different graph layout algorithms (dagre, cola, klay) to best visualize your specific topology structure.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             KEY TAKEAWAYS
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="takeaways" class="section">
+            <div class="glass-card">
+                <div class="takeaway-card">
+                    <h3>🎯 Key Takeaways</h3>
+                    <ul class="takeaway-list">
+                        <li>Kiali is the <strong>primary observability console</strong> for Istio, providing real-time visualization of your entire service mesh topology and health.</li>
+                        <li>The <strong>Versioned App Graph</strong> is the most useful graph type for understanding traffic routing between service versions — essential for canary and A/B testing scenarios.</li>
+                        <li>Health indicators use a consistent <strong>green/yellow/red/gray</strong> color scheme across all views — green means healthy, red means immediate attention needed.</li>
+                        <li>Kiali <strong>validates Istio configurations</strong> and catches mistakes that <code class="inline-code">kubectl apply</code> won't flag, like missing subsets, conflicting routes, and host mismatches.</li>
+                        <li>The <strong>debugging workflow</strong> should start with the Graph View to identify problem areas, then drill down into metrics, logs, and config validation.</li>
+                        <li>Enable <strong>Traffic Animation</strong> and <strong>mTLS lock icons</strong> in the display options for the most informative graph visualization.</li>
+                        <li>Kiali integrates with <strong>Prometheus</strong> (metrics), <strong>Grafana</strong> (dashboards), and <strong>Jaeger</strong> (tracing) — making it a unified hub for all observability needs.</li>
+                        <li>Always <strong>generate traffic</strong> before opening Kiali — the graph requires active traffic to display meaningful data.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         FOOTER
+         ═══════════════════════════════════════════════════════════════ -->
+    <footer class="footer">
+        <div class="footer-brand">
+            <span class="gradient-text">Istio Learning Lab</span>
+        </div>
+        <div class="footer-nav">
+            <a href="#what-is-kiali">What is Kiali?</a>
+            <a href="#architecture">Architecture</a>
+            <a href="#getting-started">Getting Started</a>
+            <a href="#ui-deep-dive">UI Deep Dive</a>
+            <a href="#graph-types">Graph Types</a>
+            <a href="#identifying-issues">Troubleshooting</a>
+        </div>
+        <p>Chapter 7 of 10 — Kiali Dashboard: Service Mesh Visualization</p>
+        <p style="margin-top: 8px; font-size: 0.8rem;">← Chapter 6: Observability &nbsp;&nbsp;|&nbsp;&nbsp; Chapter 8: Security →</p>
+    </footer>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         JAVASCRIPT
+         ═══════════════════════════════════════════════════════════════ -->
+    <script>
+        // ─── Intersection Observer: Fade-in cards on scroll ──────────
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+
+        document.querySelectorAll('.glass-card').forEach(card => {
+            observer.observe(card);
+        });
+
+        // ─── Copy Code Button ────────────────────────────────────────
+        function copyCode(btn) {
+            const codeBlock = btn.closest('.code-block');
+            const code = codeBlock.querySelector('code').textContent;
+
+            navigator.clipboard.writeText(code).then(() => {
+                btn.classList.add('copied');
+                btn.innerHTML = '✅ Copied!';
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = '📋 Copy';
+                }, 2000);
+            }).catch(() => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = code;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                btn.classList.add('copied');
+                btn.innerHTML = '✅ Copied!';
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = '📋 Copy';
+                }, 2000);
+            });
+        }
+
+        // ─── Tab Switching ───────────────────────────────────────────
+        function switchTab(event, tabId) {
+            // Deactivate all tabs and panels
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+
+            // Activate clicked tab and corresponding panel
+            event.target.classList.add('active');
+            const panel = document.getElementById(tabId);
+            panel.classList.add('active');
+
+            // Ensure panel is visible (trigger observer)
+            if (!panel.classList.contains('visible')) {
+                panel.classList.add('visible');
+            }
+        }
+
+        // ─── Smooth Scroll for Anchor Links ──────────────────────────
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // ─── Make tab panels always visible (they're inside glass-cards) ─
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.style.opacity = '1';
+            panel.style.transform = 'none';
+        });
+    </script>
+</body>
+</html>
